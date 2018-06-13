@@ -2837,7 +2837,7 @@ class FileUploadField extends FormField {
 
         // Check MIME type - file ext. shouldn't be solely trusted.
         if ($type && $config['__mimetypes']
-                && in_array($type, $config['__mimetypes']))
+                && in_array($type, $config['__mimetypes'], true))
             return true;
 
         // Return true if all file types are allowed (.*)
@@ -3803,7 +3803,7 @@ class SectionBreakWidget extends Widget {
     function render($options=array()) {
         ?><div class="form-header section-break"><h3><?php
         echo Format::htmlchars($this->field->getLocal('label'));
-        ?></h3><em><?php echo Format::htmlchars($this->field->getLocal('hint'));
+        ?></h3><em><?php echo Format::display($this->field->getLocal('hint'));
         ?></em></div>
         <?php
     }
