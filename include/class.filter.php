@@ -21,6 +21,9 @@ class Filter {
     var $id;
     var $ht;
 
+    const FLAG_INACTIVE_HT = 0x0001;
+    const FLAG_INACTIVE_DEPT  = 0x0002;
+
     static $match_types = array(
         /* @trans */ 'User Information' => array(
             array('name'      =>    /* @trans */ 'Name',
@@ -136,6 +139,17 @@ class Filter {
 
     function getHelpTopic() {
         return $this->ht['topic_id'];
+    }
+
+    public function setFlag($flag, $val) {
+        $vars = array();
+        $errors = array();
+        if ($val)
+            $this->ht['flags'] |= $flag;
+        else
+            $this->ht['flags'] &= ~$flag;
+        $vars['rules']= $this->getRules();
+        $this->update($this->ht, $errors);
     }
 
     function stopOnMatch() {
@@ -340,7 +354,7 @@ class Filter {
     }
 
     function update($vars,&$errors) {
-
+        $vars['flags'] = $this->ht['flags'];
         if(!Filter::save($this->getId(),$vars,$errors))
             return false;
 
@@ -457,6 +471,29 @@ class Filter {
     }
 
     function save($id,$vars,&$errors) {
+      //get current filter actions (they're validated before saving)
+      self::save_actions($id, $vars, $errors);
+
+      if ($this) {
+        foreach ($this->getActions() as $A) {
+          $config = JsonDataParser::parse($A->configuration);
+          if ($A->type == 'dept') {
+            $dept = Dept::lookup($config['dept_id']);
+            $dept_action = $A->getId();
+          }
+
+          if ($A->type == 'topic') {
+            $topic = Topic::lookup($config['topic_id']);
+            $topic_action = $A->getId();
+          }
+        }
+      }
+
+      if($dept && !$dept->isActive() && (is_array($vars['actions']) && !in_array('D' . $dept_action,$vars['actions'])))
+        $errors['err'] = sprintf(__('%s selected for %s must be active'), __('Department'), __('Filter Action'));
+
+      if($topic && !$topic->isActive() && (is_array($vars['actions']) && !in_array('D' . $topic_action,$vars['actions'])))
+        $errors['err'] = sprintf(__('%s selected for %s must be active'), __('Help Topic'), __('Filter Action'));
 
         if(!$vars['execorder'])
             $errors['execorder'] = __('Order required');
@@ -487,12 +524,13 @@ class Filter {
 
         $sql=' updated=NOW() '
             .',isactive='.db_input($vars['isactive'])
+            .',flags='.db_input($vars['flags'])
             .',target='.db_input($vars['target'])
             .',name='.db_input($vars['name'])
             .',execorder='.db_input($vars['execorder'])
             .',email_id='.db_input($emailId)
             .',match_all_rules='.db_input($vars['match_all_rules'])
-            .',stop_onmatch='.db_input(isset($vars['stop_onmatch'])?1:0)
+            .',stop_onmatch='.db_input($vars['stop_onmatch'])
             .',notes='.db_input(Format::sanitize($vars['notes']));
 
         if($id) {
@@ -513,9 +551,42 @@ class Filter {
         # Don't care about errors stashed in $xerrors
         $xerrors = array();
         self::save_rules($id,$vars,$xerrors);
-        self::save_actions($id, $vars, $errors);
 
         return count($errors) == 0;
+    }
+
+    function validate_actions($action) {
+      $errors = array();
+      $config = json_decode($action->ht['configuration'], true);
+      switch ($action->ht['type']) {
+        case 'dept':
+          $dept = Dept::lookup($config['dept_id']);
+          if (!$dept || !$dept->isActive()) {
+            $errors['err'] = sprintf(__('Unable to save: Please choose an active %s'), 'Department');
+            return $errors;
+          }
+          break;
+
+        case 'topic':
+          $topic = Topic::lookup($config['topic_id']);
+          if (!$topic || !$topic->isActive()) {
+            $errors['err'] = sprintf(__('Unable to save: Please choose an active %s'), 'Help Topic');
+            return $errors;
+          }
+          break;
+
+        default:
+          foreach ($config as $key => $value) {
+            if (!$value) {
+              $errors['err'] = sprintf(__('Unable to save: Please insert a value for %s'), ucfirst($action->ht['type']));
+              return $errors;
+            }
+          }
+          break;
+      }
+
+      return false;
+
     }
 
     function save_actions($id, $vars, &$errors) {
@@ -540,11 +611,25 @@ class Filter {
                     'sort' => (int) $sort,
                 ));
                 $I->setConfiguration($errors, $vars);
+
+                $invalid = self::validate_actions($I);
+                if ($invalid) {
+                  $errors['err'] = sprintf($invalid['err']);
+                  return;
+                }
+
                 $I->save();
                 break;
-            case 'I': # exiting filter action
+            case 'I': # existing filter action
                 if ($I = FilterAction::lookup($info)) {
                     $I->setConfiguration($errors, $vars);
+
+                    $invalid = self::validate_actions($I);
+                    if ($invalid) {
+                      $errors['err'] = sprintf($invalid['err']);
+                      return;
+                    }
+
                     $I->sort = (int) $sort;
                     $I->save();
                 }
@@ -803,7 +888,7 @@ class TicketFilter {
      *    http://msdn.microsoft.com/en-us/library/ee219609(v=exchg.80).aspx
      */
     /* static */
-    function isAutoReply($headers) {
+    static function isAutoReply($headers) {
 
         if($headers && !is_array($headers))
             $headers = Mail_Parse::splitHeaders($headers);

@@ -1,7 +1,7 @@
 <?php
 if (!defined('OSTSCPINC')
         || !$ticket
-        || !($ticket->checkStaffPerm($thisstaff, TicketModel::PERM_EDIT)))
+        || !($ticket->checkStaffPerm($thisstaff, Ticket::PERM_EDIT)))
     die('Access Denied');
 
 $info=Format::htmlchars(($errors && $_POST)?$_POST:$ticket->getUpdateInfo());
@@ -94,6 +94,10 @@ if ($_POST)
                     <option value="" selected >&mdash; <?php echo __('Select Help Topic');?> &mdash;</option>
                     <?php
                     if($topics=Topic::getHelpTopics()) {
+                      if($ticket->topic_id && !array_key_exists($ticket->topic_id, $topics)) {
+                        $topics[$ticket->topic_id] = $ticket->topic;
+                        $warn = sprintf(__('%s selected must be active'), __('Help Topic'));
+                      }
                         foreach($topics as $id =>$name) {
                             echo sprintf('<option value="%d" %s>%s</option>',
                                     $id, ($info['topicId']==$id)?'selected="selected"':'',$name);
@@ -101,7 +105,10 @@ if ($_POST)
                     }
                     ?>
                 </select>
-                &nbsp;<font class="error"><b>*</b>&nbsp;<?php echo $errors['topicId']; ?></font>
+                <?php
+                if($warn) { ?>
+                    &nbsp;<font class="error"><b>*</b>&nbsp;<?php echo $warn; ?></font>
+                <?php } ?>
             </td>
         </tr>
         <tr>
@@ -154,7 +161,7 @@ if ($_POST)
     <tbody>
         <tr>
             <th colspan="2">
-                <em><strong><?php echo __('Internal Note');?></strong>: <?php echo __('Reason for editing the ticket (required)');?> <font class="error">&nbsp;<?php echo $errors['note'];?></font></em>
+                <em><strong><?php echo __('Internal Note');?></strong>: <?php echo __('Reason for editing the ticket (optional)');?> <font class="error">&nbsp;<?php echo $errors['note'];?></font></em>
             </th>
         </tr>
         <tr>

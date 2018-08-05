@@ -1,10 +1,38 @@
 <?php
 if (!defined('OSTSCPINC') || !$thisstaff
-        || !$thisstaff->hasPerm(TicketModel::PERM_CREATE, false))
+        || !$thisstaff->hasPerm(Ticket::PERM_CREATE, false))
         die('Access Denied');
 
 $info=array();
 $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
+
+
+//  Use thread entry to seed the ticket
+if (!$user && $_GET['tid'] && ($entry = ThreadEntry::lookup($_GET['tid']))) {
+    if ($entry->getThread()->getObjectType() == 'T')
+      $oldTicket = Ticket::lookup($entry->getThread()->getObjectId());
+    if ($entry->getThread()->getObjectType() == 'A')
+      $oldTask = Task::lookup($entry->getThread()->getObjectId());
+
+    $_SESSION[':form-data']['message'] = Format::htmlchars($entry->getBody());
+    $_SESSION[':form-data']['ticket'] = $oldTicket;
+    $_SESSION[':form-data']['task'] = $oldTask;
+    $_SESSION[':form-data']['eid'] = $entry->getId();
+    $_SESSION[':form-data']['timestamp'] = $entry->getCreateDate();
+
+    if ($entry->user_id)
+       $user = User::lookup($entry->user_id);
+
+     if (($m= TicketForm::getInstance()->getField('message'))) {
+         $k = 'attach:'.$m->getId();
+         unset($_SESSION[':form-data'][$k]);
+        foreach ($entry->getAttachments() as $a) {
+          if (!$a->inline && $a->file) {
+            $_SESSION[':form-data'][$k][] = $a->file->getId();
+          }
+        }
+     }
+}
 
 if (!$info['topicId'])
     $info['topicId'] = $cfg->getDefaultTopicId();
@@ -45,7 +73,7 @@ if ($_POST)
     <tbody>
         <tr>
             <th colspan="2">
-                <em><strong><?php echo __('User Information'); ?></strong>: </em>
+                <em><strong><?php echo __('Recipient Information'); ?></strong>: </em>
                 <div class="error"><?php echo $errors['user']; ?></div>
             </th>
         </tr>
@@ -116,6 +144,44 @@ if ($_POST)
         </tr>
         <?php
         } ?>
+          <tr>
+            <td>
+              <table border="0">
+                <tr class="no_border">
+                  <td width="120">
+                      <label><strong><?php echo __('Collaborators'); ?>:</strong></label>
+                  </td>
+                  <td>
+                      <input type='checkbox' value='1' name="emailcollab"
+                      id="emailcollab"
+                          <?php echo ((!$info['emailcollab'] && !$errors) || isset($info['emailcollab']))?'checked="checked"':''; ?>
+
+                          >
+                      <?php
+                     ?>
+                  </td>
+                </tr>
+                <tr class="no_border" id="ccRow">
+                  <td width="160"><?php echo __('Cc'); ?>:</td>
+                  <td>
+                      <select class="collabSelections" name="ccs[]" id="cc_users_open" multiple="multiple"
+                          data-placeholder="<?php echo __('Select Contacts'); ?>">
+                      </select>
+                      <br/><span class="error"><?php echo $errors['ccs']; ?></span>
+                  </td>
+                </tr>
+                <tr class="no_border" id="bccRow">
+                  <td width="160"><?php echo __('Bcc'); ?>:</td>
+                  <td>
+                      <select class="collabSelections" name="bccs[]" id="bcc_users_open" multiple="multiple"
+                          data-placeholder="<?php echo __('Select Contacts'); ?>">
+                      </select>
+                      <br/><span class="error"><?php echo $errors['ccs']; ?></span>
+                  </td>
+                </tr>
+              </table>
+          </td>
+        </tr>
     </tbody>
     <tbody>
         <tr>
@@ -190,7 +256,7 @@ if ($_POST)
                 <select name="deptId">
                     <option value="" selected >&mdash; <?php echo __('Select Department'); ?>&mdash;</option>
                     <?php
-                    if($depts=Dept::getDepartments(array('dept_id' => $thisstaff->getDepts()))) {
+                    if($depts=Dept::getPublicDepartments()) {
                         foreach($depts as $id =>$name) {
                             if (!($role = $thisstaff->getRole($id))
                                 || !$role->hasPerm(Ticket::PERM_CREATE)
@@ -248,7 +314,7 @@ if ($_POST)
         </tr>
 
         <?php
-        if($thisstaff->hasPerm(TicketModel::PERM_ASSIGN, false)) { ?>
+        if($thisstaff->hasPerm(Ticket::PERM_ASSIGN, false)) { ?>
         <tr>
             <td width="160"><?php echo __('Assign To');?>:</td>
             <td>
@@ -291,7 +357,7 @@ if ($_POST)
         <tbody>
         <?php
         //is the user allowed to post replies??
-        if ($thisstaff->getRole()->hasPerm(TicketModel::PERM_REPLY)) { ?>
+        if ($thisstaff->getRole()->hasPerm(Ticket::PERM_REPLY)) { ?>
         <tr>
             <th colspan="2">
                 <em><strong><?php echo __('Response');?></strong>: <?php echo __('Optional response to the above issue.');?></em>
@@ -300,7 +366,7 @@ if ($_POST)
         <tr>
             <td colspan=2>
             <?php
-            if(($cannedResponses=Canned::getCannedResponses())) {
+            if($cfg->isCannedResponseEnabled() && ($cannedResponses=Canned::getCannedResponses())) {
                 ?>
                 <div style="margin-top:0.3em;margin-bottom:0.5em">
                     <?php echo __('Canned Response');?>:&nbsp;
@@ -345,7 +411,7 @@ print $response_form->getField('attachments')->render();
                     <?php
                     $statusId = $info['statusId'] ?: $cfg->getDefaultTicketStatusId();
                     $states = array('open');
-                    if ($thisstaff->hasPerm(TicketModel::PERM_CLOSE, false))
+                    if ($thisstaff->hasPerm(Ticket::PERM_CLOSE, false))
                         $states = array_merge($states, array('closed'));
                     foreach (TicketStatusList::getStatuses(
                                 array('states' => $states)) as $s) {
@@ -408,13 +474,9 @@ print $response_form->getField('attachments')->render();
     <input type="submit" name="submit" value="<?php echo _P('action-button', 'Open');?>">
     <input type="reset"  name="reset"  value="<?php echo __('Reset');?>">
     <input type="button" name="cancel" value="<?php echo __('Cancel');?>" onclick="javascript:
-        $('.richtext').each(function() {
-            var redactor = $(this).data('redactor');
-            if (redactor && redactor.opts.draftDelete)
-                redactor.deleteDraft();
-        });
-        window.location.href='tickets.php';
-    ">
+        $(this.form).find('textarea.richtext')
+          .redactor('draft.deleteDraft');
+        window.location.href='tickets.php'; " />
 </p>
 </form>
 <script type="text/javascript">
@@ -449,5 +511,71 @@ $(function() {
     <?php
     } ?>
 });
-</script>
 
+$(function() {
+    $('a#editorg').click( function(e) {
+        e.preventDefault();
+        $('div#org-profile').hide();
+        $('div#org-form').fadeIn();
+        return false;
+     });
+
+    $(document).on('click', 'form.org input.cancel', function (e) {
+        e.preventDefault();
+        $('div#org-form').hide();
+        $('div#org-profile').fadeIn();
+        return false;
+    });
+
+    $('.collabSelections').select2({
+      width: '350px',
+      minimumInputLength: 3,
+      ajax: {
+        url: "ajax.php/users/local",
+        dataType: 'json',
+        data: function (params) {
+          return {
+            q: params.term,
+          };
+        },
+        processResults: function (data) {
+          return {
+            results: $.map(data, function (item) {
+              return {
+                text: item.name,
+                slug: item.slug,
+                id: item.id
+              }
+            })
+          };
+        }
+      }
+    });
+
+  });
+
+$(document).ready(function () {
+    $('#emailcollab').on('change', function(){
+      var value = $("#cc_users_open").val();
+        if ($(this).prop('checked')) {
+            $('#ccRow').show();
+            $('#bccRow').show();
+        }
+        else {
+            $('#ccRow').hide();
+            $('#bccRow').hide();
+        }
+    });
+});
+
+$("form").submit(function(event) {
+  var value = $("#emailcollab").val();
+  if ($("#emailcollab").prop('checked')) {
+    //do nothing
+  }
+  else {
+    $("#cc_users_open").val(null).change();
+    $("#bcc_users_open").val(null).change();
+  }
+});
+</script>

@@ -169,13 +169,13 @@ class Email extends VerySimpleModel {
         return $info;
     }
 
-    function send($to, $subject, $message, $attachments=null, $options=null) {
+    function send($to, $subject, $message, $attachments=null, $options=null, $cc=array()) {
 
         $mailer = new Mailer($this);
         if($attachments)
             $mailer->addAttachments($attachments);
 
-        return $mailer->send($to, $subject, $message, $options);
+        return $mailer->send($to, $subject, $message, $options, $cc);
     }
 
     function sendAutoReply($to, $subject, $message, $attachments=null, $options=array()) {
@@ -263,6 +263,14 @@ class Email extends VerySimpleModel {
 
         if(!$vars['name'])
             $errors['name']=__('Email name required');
+
+        $dept = Dept::lookup($vars['dept_id']);
+        if($dept && !$dept->isActive())
+          $errors['dept_id'] = '';
+
+        $topic = Topic::lookup($vars['topic_id']);
+        if($topic && !$topic->isActive())
+          $errors['topic_id'] = '';
 
         if($vars['mail_active'] || ($vars['smtp_active'] && $vars['smtp_auth'])) {
             if(!$vars['userid'])
