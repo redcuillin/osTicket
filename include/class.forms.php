@@ -4336,8 +4336,8 @@ class AssignmentForm extends Form {
             $inc = STAFFINC_DIR . 'templates/dynamic-form-simple.tmpl.php';
             break;
         default:
-            throw new Exception(sprintf(__('%s: Unknown template style %s'),
-                        'FormUtils', $options['template']));
+            $inc = STAFFINC_DIR . 'templates/dynamic-form-simple.tmpl.php';
+            break;
         }
 
         $form = $this;
