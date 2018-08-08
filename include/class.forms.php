@@ -5156,8 +5156,9 @@ class TransferForm extends Form {
             $inc = STAFFINC_DIR . 'templates/dynamic-form-simple.tmpl.php';
             break;
         default:
-            throw new Exception(sprintf(__('%s: Unknown template style %s'),
-                        get_class(), $options['template']));
+            //throw new Exception(sprintf(__('%s: Unknown template style %s'),
+            //            get_class(), $options['template']));
+	    $inc = STAFFINC_DIR . 'templates/dynamic-form-simple.tmpl.php';
         }
 
         $form = $this;
