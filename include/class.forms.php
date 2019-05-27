@@ -165,14 +165,14 @@ class Form {
         $this->validators[] = $function;
     }
 
-    function render($staff=true, $title=false, $options=array()) {
-        if ($title)
-            $this->title = $title;
+    function render($options=array()) {
+        if (isset($options['title']))
+            $this->title = $options['title'];
         if (isset($options['instructions']))
             $this->instructions = $options['instructions'];
         $form = $this;
         $template = $options['template'] ?: 'dynamic-form.tmpl.php';
-        if ($staff)
+        if (isset($options['staff']) && $options['staff'])
             include(STAFFINC_DIR . 'templates/' . $template);
         else
             include(CLIENTINC_DIR . 'templates/' . $template);
@@ -1787,6 +1787,11 @@ class ChoiceField extends FormField {
         return (string) $value;
     }
 
+    function asVar($value, $id=false) {
+        $value = $this->to_php($value);
+        return $this->toString($this->getChoice($value));
+    }
+
     function whatChanged($before, $after) {
         $B = (array) $before;
         $A = (array) $after;
@@ -2590,6 +2595,10 @@ class PriorityField extends ChoiceField {
         return ($value instanceof Priority) ? array($value->getId()) : null;
     }
 
+    function asVar($value, $id=false) {
+        return $this->to_php($value, $id);
+    }
+
     function getConfigurationOptions() {
         $choices = $this->getChoices();
         $choices[''] = __('System Default');
@@ -2633,7 +2642,7 @@ class PriorityField extends ChoiceField {
 }
 FormField::addFieldTypes(/*@trans*/ 'Dynamic Fields', function() {
     return array(
-        'priority' => array(__('Priority Level'), PriorityField),
+        'priority' => array(__('Priority Level'), 'PriorityField'),
     );
 });
 
@@ -2803,7 +2812,7 @@ class DepartmentField extends ChoiceField {
 }
 FormField::addFieldTypes(/*@trans*/ 'Dynamic Fields', function() {
     return array(
-        'department' => array(__('Department'), DepartmentField),
+        'department' => array(__('Department'), 'DepartmentField'),
     );
 });
 
@@ -2991,7 +3000,7 @@ class AssigneeField extends ChoiceField {
 }
 FormField::addFieldTypes(/*@trans*/ 'Dynamic Fields', function() {
     return array(
-        'assignee' => array(__('Assignee'), AssigneeField),
+        'assignee' => array(__('Assignee'), 'AssigneeField'),
     );
 });
 
@@ -3081,7 +3090,7 @@ class TicketStateField extends ChoiceField {
 }
 FormField::addFieldTypes('Dynamic Fields', function() {
     return array(
-        'state' => array('Ticket State', TicketStateField, false),
+        'state' => array('Ticket State', 'TicketStateField', false),
     );
 });
 
@@ -3140,7 +3149,7 @@ class TicketFlagField extends ChoiceField {
 
 FormField::addFieldTypes('Dynamic Fields', function() {
     return array(
-        'flags' => array('Ticket Flags', TicketFlagField, false),
+        'flags' => array('Ticket Flags', 'TicketFlagField', false),
     );
 });
 
@@ -3148,6 +3157,7 @@ class FileUploadField extends FormField {
     static $widget = 'FileUploadWidget';
 
     protected $attachments;
+    protected $files;
 
     static function getFileTypes() {
         static $filetypes;
@@ -3315,7 +3325,7 @@ class FileUploadField extends FormField {
         return ($ext && is_array($allowed) && in_array(".$ext", $allowed));
     }
 
-    function getFiles() {
+    function getAttachments() {
         if (!isset($this->attachments) && ($a = $this->getAnswer())
             && ($e = $a->getEntry()) && ($e->get('id'))
         ) {
@@ -3329,6 +3339,18 @@ class FileUploadField extends FormField {
 
     function setAttachments(GenericAttachments $att) {
         $this->attachments = $att;
+    }
+
+    function getFiles() {
+        if (!isset($this->files)) {
+            $files = array();
+            foreach ($this->getAttachments() as $a) {
+                if ($a && ($f=$a->getFile()))
+                    $files[] = $f;
+            }
+            $this->files = $files;
+        }
+        return $this->files;
     }
 
     function getConfiguration() {
@@ -3388,8 +3410,8 @@ class FileUploadField extends FormField {
     // array. Then, inspect the difference between the files actually
     // attached to this field
     function to_database($value) {
-        $this->getFiles();
-        if (isset($this->attachments)) {
+        $this->getAttachments();
+        if (isset($this->attachments) && $this->attachments) {
             $this->attachments->keepOnlyFileIds($value);
         }
         return JsonDataEncoder::encode($value);
@@ -3407,10 +3429,10 @@ class FileUploadField extends FormField {
 
     function display($value) {
         $links = array();
-        foreach ($this->getFiles() as $f) {
+        foreach ($this->getAttachments() as $a) {
             $links[] = sprintf('<a class="no-pjax" href="%s">%s</a>',
-                Format::htmlchars($f->file->getDownloadUrl()),
-                Format::htmlchars($f->file->name));
+                Format::htmlchars($a->file->getDownloadUrl()),
+                Format::htmlchars($a->getFilename()));
         }
         return implode('<br/>', $links);
     }
@@ -3418,21 +3440,22 @@ class FileUploadField extends FormField {
     function toString($value) {
         $files = array();
         foreach ($this->getFiles() as $f) {
-            $files[] = $f->file->name;
+            $files[] = $f->name;
         }
         return implode(', ', $files);
     }
 
     function db_cleanup($field=false) {
-        // Delete associated attachments from the database, if any
-        $this->getFiles();
-        if (isset($this->attachments)) {
+        if ($this->getAttachments()) {
             $this->attachments->deleteAll();
         }
     }
 
     function asVar($value, $id=false) {
-        return new FileFieldAttachments($this->getFiles());
+        if (($attachments = $this->getAttachments()))
+            $attachments = $attachments->all();
+
+        return new FileFieldAttachments($attachments ?: array());
     }
     function asVarType() {
         return 'FileFieldAttachments';
@@ -3471,18 +3494,22 @@ class FileUploadField extends FormField {
 }
 
 class FileFieldAttachments {
-    var $files;
+    var $attachments;
 
-    function __construct($files) {
-        $this->files = $files;
+    function __construct($attachments) {
+        $this->attachments = $attachments;
     }
 
     function __toString() {
         $files = array();
-        foreach ($this->files as $f) {
-            $files[] = $f->file->name;
+        foreach ($this->getAttachments() as $a) {
+            $files[] = $a->getFilename();
         }
         return implode(', ', $files);
+    }
+
+    function getAttachments() {
+        return $this->attachments ?: array();
     }
 
     function getVar($tag) {
@@ -3490,7 +3517,7 @@ class FileFieldAttachments {
         case 'names':
             return $this->__toString();
         case 'files':
-            throw new OOBContent(OOBContent::FILES, $this->files->all());
+            throw new OOBContent(OOBContent::FILES, $this->getAttachments());
         }
     }
 
@@ -4355,45 +4382,45 @@ class FileUploadWidget extends Widget {
         ),
     );
 
-    function render($options) {
+    function render($options=array()) {
         $config = $this->field->getConfiguration();
         $name = $this->field->getFormName();
         $id = substr(md5(spl_object_hash($this)), 10);
-        $attachments = $this->field->getFiles();
         $mimetypes = array_filter($config['__mimetypes'],
             function($t) { return strpos($t, '/') !== false; }
         );
         $maxfilesize = ($config['size'] ?: 1048576) / 1048576;
-        $files = $F = array();
+        $files = array();
         $new = array_fill_keys($this->field->getClean(), 1);
-
-        //get file ids stored in session when creating tickets/tasks from thread
-        if (!$new && is_array($_SESSION[':form-data'])
-                  && array_key_exists($this->field->get('name'), $_SESSION[':form-data']))
-          $new = array_fill_keys($_SESSION[':form-data'][$this->field->get('name')], 1);
-
-        foreach ($attachments as $a) {
-            $F[] = $a->file;
-            unset($new[$a->file_id]);
+        foreach ($this->field->getAttachments() as $att) {
+            unset($new[$att->file_id]);
+            $files[] = array(
+                'id' => $att->file->getId(),
+                'name' => $att->getFilename(),
+                'type' => $att->file->getType(),
+                'size' => $att->file->getSize(),
+                'download_url' => $att->file->getDownloadUrl(),
+            );
         }
+
         // Add in newly added files not yet saved (if redisplaying after an
         // error)
         if ($new) {
-            $F = array_merge($F, AttachmentFile::objects()
+            $F = AttachmentFile::objects()
                 ->filter(array('id__in' => array_keys($new)))
-                ->all()
-            );
+                ->all();
+            foreach ($F as $f) {
+                $f->tmp_name = $new[$f->getId()];
+                $files[] = array(
+                    'id' => $f->getId(),
+                    'name' => $f->getName(),
+                    'type' => $f->getType(),
+                    'size' => $f->getSize(),
+                    'download_url' => $f->getDownloadUrl(),
+                );
+            }
         }
 
-        foreach ($F as $file) {
-            $files[] = array(
-                'id' => $file->getId(),
-                'name' => $file->getName(),
-                'type' => $file->getType(),
-                'size' => $file->getSize(),
-                'download_url' => $file->getDownloadUrl(),
-            );
-        }
         ?><div id="<?php echo $id;
             ?>" class="filedrop"><div class="files"></div>
             <div class="dropzone"><i class="icon-upload"></i>
@@ -4415,7 +4442,7 @@ class FileUploadWidget extends Widget {
           allowedfiletypes: <?php echo JsonDataEncoder::encode(
             $mimetypes); ?>,
           maxfiles: <?php echo $config['max'] ?: 20; ?>,
-          maxfilesize: <?php echo $maxfilesize; ?>,
+          maxfilesize: <?php echo str_replace(',', '.', $maxfilesize); ?>,
           name: '<?php echo $name; ?>[]',
           files: <?php echo JsonDataEncoder::encode($files); ?>
         });});
@@ -4529,21 +4556,22 @@ class FreeTextField extends FormField {
     }
 
     function getAttachments() {
-
         if (!isset($this->attachments))
             $this->attachments = GenericAttachments::forIdAndType($this->get('id'), 'I');
 
-        return $this->attachments;
+        return $this->attachments ?: array();
     }
 
     function getFiles() {
-
-        if (!($attachments = $this->getAttachments()))
-            return array();
-
-        return $attachments->all();
+        if (!isset($this->files)) {
+            $files = array();
+            if (($attachments=$this->getAttachments()))
+                foreach ($attachments->all() as $a)
+                    $files[] = $a->getFile();
+            $this->files = $files;
+        }
+        return $this->files;
     }
-
 }
 
 class FreeTextWidget extends Widget {
@@ -4565,12 +4593,10 @@ class FreeTextWidget extends Widget {
             echo Format::viewableImages($config['content']); ?></div>
         </div>
         <?php
-        if (($attachments = $this->field->getFiles()) && count($attachments)) { ?>
+        if (($attachments = $this->field->getAttachments()) && count($attachments)) { ?>
             <section class="freetext-files">
             <div class="title"><?php echo __('Related Resources'); ?></div>
-            <?php foreach ($attachments as $attach) {
-                $filename = Format::htmlchars($attach->getFilename());
-                ?>
+            <?php foreach ($attachments->all() as $attach) { ?>
                 <div class="file">
                 <a href="<?php echo $attach->file->getDownloadUrl(); ?>"
                     target="_blank" download="<?php echo $filename; ?>"
@@ -4840,7 +4866,7 @@ class AssignmentForm extends Form {
         return !$this->errors();
     }
 
-    function render($staff = true, $title = false, $options = Array()) {
+    function render($options=array()) {
 
         switch(strtolower($options['template'])) {
         case 'simple':
@@ -5149,7 +5175,7 @@ class TransferForm extends Form {
         return !$this->errors();
     }
 
-    function render($staff=true, $title=false, $options=array()) {
+    function render($options=array()) {
 
         switch(strtolower($options['template'])) {
         case 'simple':

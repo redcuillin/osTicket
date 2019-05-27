@@ -1465,7 +1465,7 @@ implements RestrictedAccess, Threadable, Searchable {
             }
 
             // Account manager
-            if ($cfg->alertAcctManagerONNewMessage()
+            if ($cfg->alertAcctManagerONNewTicket()
                 && ($org = $this->getOwner()->getOrganization())
                 && ($acct_manager = $org->getAccountManager())
             ) {
@@ -3389,7 +3389,10 @@ implements RestrictedAccess, Threadable, Searchable {
             ->filter(array('number' => $number));
 
         if ($email)
-            $query->filter(array('user__emails__address' => $email));
+            $query->filter(Q::any(array(
+                'user__emails__address' => $email,
+                'thread__collaborators__user__emails__address' => $email
+            )));
 
 
         if (!$ticket) {

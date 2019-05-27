@@ -156,8 +156,12 @@ class DynamicForm extends VerySimpleModel {
         $inst = DynamicFormEntry::create(
             array('form_id'=>$this->get('id'), 'sort'=>$sort)
         );
+
         if ($data)
             $inst->setSource($data);
+
+        $inst->_fields = $this->_fields ?: null;
+
         return $inst;
     }
 
@@ -1176,8 +1180,9 @@ class DynamicFormEntry extends VerySimpleModel {
             ->filter(array('object_id'=>$object_id, 'object_type'=>$object_type));
     }
 
-    function render($staff=true, $title=false, $options=array()) {
-        return $this->getForm()->render($staff, $title, $options);
+    function render($options=array()) {
+        $options += array('staff' => true);
+        return $this->getForm()->render($options);
     }
 
     function getChanges() {
@@ -1795,7 +1800,7 @@ class SelectionField extends FormField {
     function getSearchMethods() {
         return array(
             'set' =>        __('has a value'),
-            'notset' =>     __('does not have a value'),
+            'nset' =>     __('does not have a value'),
             'includes' =>   __('includes'),
             '!includes' =>  __('does not include'),
         );
@@ -1804,7 +1809,7 @@ class SelectionField extends FormField {
     function getSearchMethodWidgets() {
         return array(
             'set' => null,
-            'notset' => null,
+            'nset' => null,
             'includes' => array('ChoiceField', array(
                 'choices' => $this->getChoices(),
                 'configuration' => array('multiselect' => true),

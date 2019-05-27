@@ -1,70 +1,90 @@
-osTicket 1.11.0-rc.1
-====================
-## Major New Features
-* Create Ticket or Task from Thread Entry
-* Custom Columns/Custom Queues
-* Inline Edit
-* Ticket Referral
-* CC/BCC
-* Export Agent CSV
-* Department Access CSV
-* Archive Help Topics/Departments
-* Nested Knowledgebase Categories
-
+osTicket v1.10.6
+================
 ### Enhancements
-* Fix Custom Department Field (#3976)
-* Remove Future Search/Filter Criteria if Invalid
-* Dashboard Statistics
-* Fix Vimeo iFrames
-* Fix randNumber()
-* Section Break Hint
-* List & Choice Searching (#3703, #3493, #2625)
-* Adds osTicket Favicons (#4112)
-* Fix Most Redactor Issues (#3849)
-* Send Login Errors Still Sends (#4073)
-* Private FAQs In Sidebar Search
-* User Password Reset (#4030)
-* Disabled & Private Help Topic (#3538)
-* Helpdesk Status Help Tip
-* Local Names In Validation Errors
-* User Registration Form (#4043)
-* Organization User List Pages Link (#4116)
-* Ticket Edit Internal Note (#4028)
-* Disable Canned Responses On New Ticket (#3971)
-* Canned Response Margin
-* Ticket Preview Custom Fields
-* Help Topic SLA (#3979)
-* Fix Agent Identity Masking (#2955, #3524)
-* Force Keys For Choice Field Options (#4071)
-* Check Missing Required Fields
-* Task Action Button Styling
-* Add Fullscreen To Embedded Videos
-* Fix Serbian Flag Icon (#3952)
-* Optimize Lock Table
-* Fix Outdated Alerts Link (#3935)
-* Fix Default Dept. Private Error (#3934)
-* Mailto TLD Length (#4063)
-* Remove Primary Contacts (#3903)
-* Fix Reset Button(s) (#3670)
-* Newsletter Link
-* Offline Page Images (#3869)
-* User Login Page Translation (#3860)
-* Translate Special Characters (#3842)
-* Custom Form Deletion (#3542, #4059)
-* Client Side Long FAQ Title (#3380)
-* Client FAQ Last Updated Time (#3475)
-* Email Banlist Sorting (#3452)
-* Fix New Ticket Cancel Button (#2624, #2881)
-* SQL Error Unknown column 'relevance' (#2655)
-* Fixes issue with last_update ticket variable
-* Ticket Notice Alert
-* Fix CSRF fail + shake effect (#3928, #3546)
-* Issue/ticket preview collabs
-* Allowing translation of copyrights in footers
-* User/Organization are not translated (#3650)
-* Fix DatePicker on client side (#3625, #3817, #3804, 0fbc09a)
-* Add Custom Forms to Ticket Filter Data
-* Fix for LDAP/AD auth plugin (#4198, #3460, #3544, #3549)
+* issue: Upgrader Wrong Guide Link (#4739)
+* iframe: Allow Multiple iFrame Domains (#4781)
+* issue: Strip Emoticons (#4523)
+
+### Improvements
+* issue: Maxfilesize Comma Crash (#4340)
+* issue: No Save Button On Quicknotes (#4706)
+* issue: PHP 7.2 Ticket Status (#4758)
+* issue: Canned Response Variables (#4759)
+* issue: FAQ Search Results (#4771)
+* issue: FAQ Return Errors (#4772)
+* issue: Duplicate Form Titles (#4788)
+* issue: Organizations Users Sort (#4806)
+* oops: Emojis Strip Korean (#4823)
+* issue: iFrame On Install (#4824)
+* issue: sendAccessLink On NULL (#4828)
+* Update README.md (eccc57a, e5f4180)
+* issue: iFrame Single Quotes (#4844)
+* issue: .eml/.msg Attachments (#4857)
+
+### Performance and Security
+* xss: XSS To LFI Vulnerability (#4869)
+* jquery: Update Again (#4858)
+
+osTicket v1.10.5
+================
+### Enhancements
+* issue: Translation Flags Not Clickable (#4687)
+* issue: Hide Task Loading Overlay (#4660)
+* Issue: Tasks Within Tickets (#4653)
+* issue: Dashboard Export Period (#4650)
+* Improve the Staff login (#4629)
+* oops: Remove DST From User Update (#4599)
+* issue: Dupe Page Requests Fix (#4568)
+* change old wiki urls to new doc urls (#4517)
+* oops: Class GenericAttachment Not Found (#4481)
+* issue: Duplicate Page Requests (#4472)
+* forms: Render Instructions (#4494)
+* accessibility: Screen Readable Actions (#4490)
+* forms: Disabled By Help Topic Users (#4476)
+* issue: CDATA Phone Contains (#4471)
+* Tasks: Task visibility (#4467)
+* issue: mPDF SetAutoFont RTL (#4466)
+* issue: SelectionField nset (#4465)
+* cron: Clean Expired Passwd Resets (#4451)
+* sessions: Clear On Password Set/Reset (#4450)
+* Make getFiles() return files (#4410)
+* issue: mPDF Arabic Fonts (#4455)
+* issue: Task Term Search (#4453)
+* Relative Time Fixes: (#4452)
+* perms: Alphabetize Role/Staff Permissions (#4439)
+* issue: Ticket Filter Does Not Match Regex (#4443)
+* Task Assigned Team Issue: (#4437)
+* issue: FAQ & Canned Attachments Dropping (#4428)
+* issue: Wrong Attachment Names (#4426, #4425)
+* issue: Featured FAQs On Disable (#4416)
+* issue: Deleted Field Thread Events (#4394)
+* issue: Custom File Upload Dropping (#4406)
+* issue: Priority Field Template Variable (#4390)
+* issue: Client Side Thread Entries (#4383)
+* Web Portal Fixes: (#4369)
+* issue: jQuery Sortable Redactor (#4381)
+* issue: CLI Deploy Missing Bootstrap Fix (#4363)
+* issue: Client Side Column Sorting (#4362)
+* issue: ChoiceField Template Variable (#4359)
+* issue: TextThreadEntryBody Sanitize (#4355)
+* issue: Installer Footer Copyright (#4351)
+
+### Performance and Security
+* Latest jQuery Upgrade (#4672)
+
+osTicket v1.10.4
+================
+### Enhancements
+* issue: Auto-Assignment Log (#4316)
+* issue: Language Pack Locale Mismatch (#4326)
+* issue: CLI Deploy Missing Bootstrap (#4332)
+* issue: User Import No Email (#4330)
+* issue: Ticket Lock On Disable (#4335)
+
+### Performance and Security
+* security: Fix Multiple XSS Vulnerabilities (#4331)
+* department: Error Feedback (#4331)
+
 
 osTicket v1.10.3
 ================

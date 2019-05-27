@@ -59,27 +59,15 @@ $info = Format::htmlchars(($errors && $_POST) ? $_POST : $info);
             <td>
                 <select name="pid">
                     <option value="">&mdash; <?php echo __('Top-Level Department'); ?> &mdash;</option>
-                    <?php
-                    if($info['pid'])
-                      $current_name = Dept::getNameById($info['pid']);
-                    if ($depts=Dept::getPublicDepartments())
-                    {
-                      if(!array_key_exists($info['pid'], $depts) && $info['pid'])
-                      {
-                        $depts[$info['pid']] = $current_name;
-                        $warn = sprintf(__('%s selected must be active'), __('Parent Department'));
-                      }
-                    foreach ($depts as $id=>$name) {
-                        $selected=($info['pid'] && $id==$info['pid'])?'selected="selected"':'';
-                        echo sprintf('<option value="%d" %s>%s</option>',$id,$selected,$name);
-                    }
-                  }
-                  ?>
-              </select>
-              <?php
-              if($warn) { ?>
-                  &nbsp;<span class="error">*&nbsp;<?php echo $warn; ?></span>
-              <?php } ?>
+<?php foreach (Dept::getDepartments() as $id=>$name) {
+    if ($info['id'] && $id == $info['id'])
+        continue; ?>
+                    <option value="<?php echo $id; ?>" <?php
+                    if ($info['pid'] == $id) echo 'selected="selected"';
+                    ?>><?php echo $name; ?></option>
+<?php } ?>
+                </select>
+                &nbsp;<span class="error"><?php echo $errors['pid']; ?></span>
             </td>
         </tr>
         <tr>

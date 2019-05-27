@@ -163,8 +163,19 @@ var scp_prep = function() {
 
     $('form.save, form:has(table.list)').submit(function() {
         $(window).unbind('beforeunload');
-        $.toggleOverlay(true);
-        $('#loading').show();
+        // Disable staff-side Post Reply/Open buttons to help prevent
+        // duplicate POST
+        var form = $(this);
+        $(this).find('input[type="submit"]').each(function (index) {
+            // Clone original input
+            $(this).clone(false).removeAttr('id').prop('disabled', true).insertBefore($(this));
+
+            // Hide original input and add it to top of form
+            $(this).hide();
+            form.prepend($(this));
+        });
+        $('#overlay, #loading').show();
+        return true;
      });
 
     $('select#tpl_options').change(function() {
@@ -193,6 +204,13 @@ var scp_prep = function() {
         }
      });
 
+    $('form select#cannedResp').select2({width: '350px'});
+    $('form select#cannedResp').on('select2:opening', function (e) {
+        var redactor = $('.richtext', $(this).closest('form')).data('redactor');
+        if (redactor)
+            redactor.selection.save();
+    });
+
     $('form select#cannedResp').change(function() {
 
         var fObj = $(this).closest('form');
@@ -214,9 +232,10 @@ var scp_prep = function() {
                     var box = $('#response',fObj),
                         redactor = box.data('redactor');
                     if(canned.response) {
-                        if (redactor)
+                        if (redactor) {
+                            redactor.selection.restore();
                             redactor.insert.html(canned.response);
-                        else
+                        } else
                             box.val(box.val() + canned.response);
 
                         if (redactor)
@@ -376,7 +395,8 @@ var scp_prep = function() {
            $('input[name^='+attr+']', ui.item.parent('tbody')).each(function(i, el) {
                $(el).val(i + 1 + offset);
            });
-       }
+       },
+       'cancel': ':input,button,div[contenteditable=true]'
    });
 
     // Scroll to a stop or top on scroll-up click
@@ -1108,7 +1128,7 @@ if ($.support.pjax) {
     if (!$this.hasClass('no-pjax')
         && !$this.closest('.no-pjax').length
         && $this.attr('href').charAt(0) != '#')
-      $.pjax.click(event, {container: $this.data('pjaxContainer') || $('#pjax-container'), timeout: 2000});
+      $.pjax.click(event, {container: $this.data('pjaxContainer') || '#pjax-container', timeout: 2000});
   })
 }
 
@@ -1144,15 +1164,16 @@ $(document).on('change', 'select[data-quick-add]', function() {
 });
 
 // Quick note interface
-$(document).on('click.note', '.quicknote .action.edit-note', function() {
+$(document).on('click.note', '.quicknote .action.edit-note', function(e) {
+    // Prevent Auto-Scroll to top of page
+    e.preventDefault();
     var note = $(this).closest('.quicknote'),
         body = note.find('.body'),
         T = $('<textarea>').text(body.html());
     if (note.closest('.dialog, .tip_box').length)
         T.addClass('no-bar small');
     body.replaceWith(T);
-    $.redact(T);
-    $(T).redactor('focus.setStart');
+    $.redact(T, { focusEnd: true });
     note.find('.action.edit-note').hide();
     note.find('.action.save-note').show();
     note.find('.action.cancel-edit').show();
@@ -1225,8 +1246,7 @@ $(document).on('click', '#new-note', function() {
     note.replaceWith(T);
     $('<p>').addClass('submit').css('text-align', 'center')
         .append(button).appendTo(T.parent());
-    $.redact(T);
-    $(T).redactor('focus.setStart');
+    $.redact(T, { focusEnd: true });
     return false;
 });
 
